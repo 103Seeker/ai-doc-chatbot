@@ -1,5 +1,5 @@
 import os
-from typing import TypedDict, Annotated
+from typing import TypedDict
 from langchain_groq import ChatGroq
 from langgraph.graph import StateGraph, END
 from services.vector_service import search_chunks
@@ -10,14 +10,14 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "your-groq-api-key-here")
 
 llm = ChatGroq(
     api_key=GROQ_API_KEY,
-    model_name="llama3-8b-8192",   # fast + free on Groq
+    model_name="llama3-8b-8192",
     temperature=0.2,
     max_tokens=1024,
 )
 
 
 # ─────────────────────────────────────────
-# Agent State (shared across all agents)
+# Agent State
 # ─────────────────────────────────────────
 
 class AgentState(TypedDict):
@@ -32,7 +32,6 @@ class AgentState(TypedDict):
 
 # ─────────────────────────────────────────
 # AGENT 1 — Retriever Agent
-# Finds the most relevant chunks from ChromaDB
 # ─────────────────────────────────────────
 
 def retriever_agent(state: AgentState) -> AgentState:
@@ -56,7 +55,6 @@ def retriever_agent(state: AgentState) -> AgentState:
 
 # ─────────────────────────────────────────
 # AGENT 2 — Answer Agent
-# Generates an answer using retrieved context + Groq LLM
 # ─────────────────────────────────────────
 
 def answer_agent(state: AgentState) -> AgentState:
@@ -89,7 +87,6 @@ Answer:"""
 
 # ─────────────────────────────────────────
 # AGENT 3 — Summarizer Agent
-# Cleans and polishes the final answer
 # ─────────────────────────────────────────
 
 def summarizer_agent(state: AgentState) -> AgentState:
@@ -120,18 +117,16 @@ Polished Answer:"""
 
 
 # ─────────────────────────────────────────
-# Build LangGraph — connects all 3 agents
+# Build LangGraph
 # ─────────────────────────────────────────
 
 def build_graph():
     graph = StateGraph(AgentState)
 
-    # Add nodes (agents)
     graph.add_node("retriever", retriever_agent)
     graph.add_node("answer", answer_agent)
     graph.add_node("summarizer", summarizer_agent)
 
-    # Define flow: retriever → answer → summarizer → END
     graph.set_entry_point("retriever")
     graph.add_edge("retriever", "answer")
     graph.add_edge("answer", "summarizer")
@@ -140,19 +135,10 @@ def build_graph():
     return graph.compile()
 
 
-# Compile once at startup
 agent_graph = build_graph()
 
 
-# ─────────────────────────────────────────
-# Public function called by main.py
-# ─────────────────────────────────────────
-
 def run_agent(doc_id: str, question: str) -> dict:
-    """
-    Run the full multi-agent pipeline for a question.
-    Returns answer, sources, and agent trace.
-    """
     initial_state: AgentState = {
         "doc_id": doc_id,
         "question": question,

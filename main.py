@@ -20,7 +20,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── In-memory store for uploaded text (simple, no extra DB needed) ──
 uploaded_docs: dict[str, str] = {}
 
 
@@ -41,17 +40,11 @@ class ChatResponse(BaseModel):
 
 @app.get("/health")
 def health():
-    """Health check endpoint."""
     return {"status": "ok", "message": "AI Document Chatbot is running 🚀"}
 
 
 @app.post("/upload-pdf")
 async def upload_pdf(file: UploadFile = File(...)):
-    """
-    Upload a PDF file.
-    Extracts text, chunks it, stores embeddings in ChromaDB.
-    Returns a doc_id to use in /chat.
-    """
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
@@ -64,7 +57,6 @@ async def upload_pdf(file: UploadFile = File(...)):
     doc_id = file.filename.replace(" ", "_").replace(".pdf", "")
     uploaded_docs[doc_id] = text
 
-    # Phase 2: chunk + embed + store in ChromaDB
     num_chunks = store_chunks(doc_id, text)
 
     return {
@@ -78,7 +70,6 @@ async def upload_pdf(file: UploadFile = File(...)):
 
 @app.get("/get-text/{doc_id}")
 def get_text(doc_id: str):
-    """Return raw extracted text for a doc_id."""
     if doc_id not in uploaded_docs:
         raise HTTPException(status_code=404, detail="Document not found.")
     text = uploaded_docs[doc_id]
@@ -92,7 +83,6 @@ def get_text(doc_id: str):
 
 @app.get("/list-docs")
 def list_docs():
-    """List all uploaded documents."""
     return {
         "documents": list(uploaded_docs.keys()),
         "count": len(uploaded_docs)
@@ -101,7 +91,6 @@ def list_docs():
 
 @app.delete("/delete-doc/{doc_id}")
 def delete_doc(doc_id: str):
-    """Remove a document and its vectors."""
     if doc_id not in uploaded_docs:
         raise HTTPException(status_code=404, detail="Document not found.")
     uploaded_docs.pop(doc_id)
@@ -115,10 +104,6 @@ def delete_doc(doc_id: str):
 
 @app.post("/search")
 def search(doc_id: str, query: str, top_k: int = 3):
-    """
-    Semantic search over a document's chunks.
-    Returns top-k most relevant chunks.
-    """
     if doc_id not in uploaded_docs:
         raise HTTPException(status_code=404, detail="Document not found.")
     results = search_chunks(doc_id, query, top_k)
@@ -131,10 +116,6 @@ def search(doc_id: str, query: str, top_k: int = 3):
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
-    """
-    Multi-agent RAG chat endpoint.
-    Agents: Retriever → Answer → Summarizer
-    """
     if req.doc_id not in uploaded_docs:
         raise HTTPException(status_code=404, detail="Document not found. Upload a PDF first.")
 

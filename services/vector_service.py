@@ -1,6 +1,6 @@
 import os
 import chromadb
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 
 # ── ChromaDB client (persistent local storage) ──
@@ -8,7 +8,6 @@ CHROMA_PATH = "./chroma_db"
 client = chromadb.PersistentClient(path=CHROMA_PATH)
 
 # ── Embeddings: free, runs locally, no API key needed ──
-# Uses sentence-transformers under the hood
 embeddings_model = HuggingFaceEmbeddings(
     model_name="all-MiniLM-L6-v2"
 )
@@ -83,7 +82,7 @@ def search_chunks(doc_id: str, query: str, top_k: int = 3) -> list[dict]:
     for i, doc in enumerate(results["documents"][0]):
         output.append({
             "text": doc,
-            "score": round(1 - results["distances"][0][i], 4),  # cosine similarity
+            "score": round(1 - results["distances"][0][i], 4),
             "chunk_index": results["metadatas"][0][i]["chunk_index"]
         })
 
